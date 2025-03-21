@@ -55,12 +55,12 @@ Avant de commencer, assurez-vous d'avoir les éléments suivants installés sur 
 
 ## Lancement
 
-If you are using Docker Compose, you can set the database and other services in the docker-compose.yml file and ensure they are configured correctly.
+- If you are using Docker Compose, you can set the database and other services in the docker-compose.yml file and ensure they are configured correctly.
 
-Docker Setup
-If you are using Docker Compose, make sure to have Docker and Docker Compose installed on your system.
+**Docker Setup**
+- If you are using Docker Compose, make sure to have Docker and Docker Compose installed on your system.
 
-Run the following command to build and start the services defined in docker-compose.yml:
+- Run the following command to build and start the services defined in docker-compose.yml:
 
 ```bash
 docker-compose up --build
