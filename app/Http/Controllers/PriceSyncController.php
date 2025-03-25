@@ -18,13 +18,17 @@ class PriceSyncController extends Controller
     }
 
     /**
-     * Sync prices for all investments.
+     * Synchronise les prix pour tous les investissements.
      */
     public function sync()
     {
-        
-        $this->priceSyncService->syncPricesForInvestments(Auth::id());
-        return response()->json(['message' => 'Prices synchronized.'], 200);
+        $userId = Auth::id();
+        try {
+            $this->priceSyncService->syncPricesForInvestments($userId);
+            return response()->json(['message' => 'Prix synchronisés avec succès.'], 200);
+        } catch (Exception $e) {
+            return response()->json(['error' => 'Erreur lors de la synchronisation des prix.'], 500);
+        }
         
     }
 }

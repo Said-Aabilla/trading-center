@@ -36,13 +36,11 @@ class AuthService
      */
     public function loginUser(array $credentials): array
     {
-        // Récupérer l’utilisateur
         $user = User::where('email', $credentials['email'])->first();
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
             throw new \Exception('Invalid credentials.');
         }
 
-        // Générer le token Sanctum avec expiration “logique”
         $expiration = Carbon::now()->addHour();
         $token = $user->createToken('auth_token', ['*'], $expiration)->plainTextToken;
 

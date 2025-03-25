@@ -16,7 +16,8 @@ class Investment extends Model
         'quantity',
         'sector',
         'portfolio_id',
-        'current_price'
+        'current_price',
+        'cout_moyen'
     ];
 
     public function user()

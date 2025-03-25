@@ -16,7 +16,7 @@ class PortfolioController extends Controller
     }
 
    /**
-     * Create a new portfolio for the user.
+     * Crée un nouveau portefeuille pour l'utilisateur.
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -30,7 +30,7 @@ class PortfolioController extends Controller
     }
 
     /**
-     * Get a specific portfolio by ID.
+     * Récupère un portefeuille spécifique par ID.
      *
      * @param $portfolioId
      * @return \Illuminate\Http\JsonResponse
@@ -42,7 +42,7 @@ class PortfolioController extends Controller
     }
 
     /**
-     * Update the name of a portfolio.
+     * Met à jour le nom d'un portefeuille.
      *
      * @param Request $request
      * @param $portfolioId
@@ -56,7 +56,7 @@ class PortfolioController extends Controller
     }
 
     /**
-     * Delete a specific portfolio.
+     * Supprime un portefeuille spécifique.
      *
      * @param $portfolioId
      * @return \Illuminate\Http\JsonResponse
@@ -68,7 +68,7 @@ class PortfolioController extends Controller
     }
 
     /**
-     * Get all assets in a specific portfolio.
+     * Récupère tous les actifs d'un portefeuille spécifique.
      *
      * @param $portfolioId
      * @return \Illuminate\Http\JsonResponse

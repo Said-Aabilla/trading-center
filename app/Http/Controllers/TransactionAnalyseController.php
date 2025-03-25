@@ -25,7 +25,7 @@ class TransactionAnalyseController extends Controller
     {
         $userId = Auth::id();
         $totalGains = $this->transactionAnalyseService->calculateTotalCapitalGains($userId);
-        return response()->json(['Total Capital Gains' => $totalGains], 200);
+        return response()->json(['Total des plus-values' => $totalGains], 200);
     }
 
     /**
@@ -36,7 +36,7 @@ class TransactionAnalyseController extends Controller
         $userId = Auth::id();
         $report = $this->transactionAnalyseService->generateTaxReport($userId);
         return response()->json([
-            'message' => 'Tax report generated successfully.',
+            'message' => 'Rapport fiscal généré avec succès.',
             'data' => $report
         ], 200);
     }

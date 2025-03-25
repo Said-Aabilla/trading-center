@@ -23,20 +23,16 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanc
 Route::middleware('auth:sanctum')->group(function () {
 
      // Portfolio Routes
-     Route::get('/portfolios', [PortfolioController::class, 'index']); // List all portfolios
-     Route::post('/portfolios', [PortfolioController::class, 'create']); // Create a new portfolio
-     Route::get('/portfolios/{portfolioId}', [PortfolioController::class, 'show']); // Get a specific portfolio
-     Route::put('/portfolios/{portfolioId}', [PortfolioController::class, 'update']); // Update a portfolio
-     Route::delete('/portfolios/{portfolioId}', [PortfolioController::class, 'destroy']); // Delete a portfolio
-     Route::get('/portfolios/{portfolioId}/assets', [PortfolioController::class, 'getAssets']); // Get assets in a portfolio
+     Route::get('/portfolios', [PortfolioController::class, 'index']);
+     Route::post('/portfolios', [PortfolioController::class, 'create']);
+     Route::get('/portfolios/{portfolioId}', [PortfolioController::class, 'show']);
+     Route::delete('/portfolios/{portfolioId}', [PortfolioController::class, 'destroy']);
     
     // Investment Management Routes
     Route::prefix('investments')->group(function () {
         Route::get('/', [InvestmentController::class, 'index']);
         Route::post('/', [InvestmentController::class, 'store']);
         Route::get('{id}', [InvestmentController::class, 'show']);
-        Route::put('{id}', [InvestmentController::class, 'update']);
-        Route::delete('{id}', [InvestmentController::class, 'destroy']);
     });
 
     // Transaction Management Routes
@@ -44,34 +40,31 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [TransactionController::class, 'index']);
         Route::post('/', [TransactionController::class, 'store']);
         Route::get('{id}', [TransactionController::class, 'show']);
-        Route::put('{id}', [TransactionController::class, 'update']);
-        Route::delete('{id}', [TransactionController::class, 'destroy']);
     });
 
     // Price Synchronization Routes
-    Route::prefix('prices')->group(function () {
-        Route::post('/sync', [PriceSyncController::class, 'sync']);
-    });
+
+    Route::post('/sync-prices', [PriceSyncController::class, 'sync']);
 
     // Analysis Routes
-    Route::prefix('analyses')->group(function () {
+    Route::prefix('analyse')->group(function () {
 
         // Portfolio Distribution Analysis
-        Route::get('/portfolio-distribution', [AnalyseController::class, 'portfolioDistribution']);
+        Route::get('/repartition-portefeuille', [AnalyseController::class, 'repartitionPortefeuille']);
 
         // ROI Analysis
-        Route::get('/unrealized-roi/{invest_id}', [AnalyseController::class, 'unrealizedROI']);
-        Route::get('/realized-roi/{invest_id}', [AnalyseController::class, 'realizedROI']);
+        Route::get('/roi-non-encaisse/{investmentId}', [AnalyseController::class, 'roiNonEncaisse']);
+        Route::get('/roi-encaisse/{investmentId}', [AnalyseController::class, 'roiEncaisse']);
 
         // Sector Performance Analysis
-        Route::get('/performance-by-sector', [AnalyseController::class, 'performanceBySector']);
+        Route::get('/sector-performance', [AnalyseController::class, 'performanceBySector']);
 
         // Cash Gain and Non-Cash Gain Analysis
-        Route::get('/cash-gain/{invest_id}', [AnalyseController::class, 'cashGain']);
-        Route::get('/non-cash-gain/{invest_id}', [AnalyseController::class, 'nonCashGain']);
+        Route::get('/gain-encaisse/{investmentId}', [AnalyseController::class, 'gainEncaisse']);
+        Route::get('/gain-non-encaisse/{investmentId}', [AnalyseController::class, 'gainNonEncaisse']);
 
         // Trending Analysis
-        Route::post('/trending', [AnalyseController::class, 'trendingAnalysis']);
+        Route::post('/tendance', [AnalyseController::class, 'analyseTendance']);
     });
 
     // Transaction Analysis Routes
@@ -80,7 +73,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/total-capital-gains', [TransactionAnalyseController::class, 'totalCapitalGains']);
 
         // Generate Tax Report
-        Route::get('/generateTaxReport', [TransactionAnalyseController::class, 'generateTaxReport']);
+        Route::get('/tax-report', [TransactionAnalyseController::class, 'generateTaxReport']);
     });
 
 });

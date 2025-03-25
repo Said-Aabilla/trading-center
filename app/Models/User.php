@@ -14,8 +14,8 @@ class User extends Authenticatable
     use HasFactory, Notifiable, HasApiTokens;
 
     /**
-     * The attributes that are mass assignable.
-     *
+     * Les attributs qui peuvent être assignés en masse.
+     *  
      * @var list<string>
      */
     protected $fillable = [
@@ -25,8 +25,8 @@ class User extends Authenticatable
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
-     *
+     * Les attributs qui doivent être masqués pour la sérialisation.
+     *  
      * @var list<string>
      */
     protected $hidden = [

@@ -18,48 +18,119 @@ class TransactionService
         try {
             return Transaction::where('user_id', $userId)->get();
         } catch (Exception $e) {
-            throw new Exception('Error while fetching transactions.');
+            throw new Exception('Erreur lors de la récupération des transactions: ' . $e->getMessage());
         }
     }
 
     /**
-     * Crée une nouvelle transaction.
+     * Crée une transaction d'achat et met à jour l'investissement en utilisant le coût moyen pondéré.
+     *
+     * Calcul du nouveau coût moyen :
+     *   totalDépense = (ancienCoutMoyen * ancienneQuantité) + (prixAchat * quantitéAchetée)
+     *   nouvelleQuantité = ancienneQuantité + quantitéAchetée
+     *   nouveauCoutMoyen = totalDépense / nouvelleQuantité
+     *
+     * @param array $data Les données de la transaction (incluant investment_id, price, quantity, type = "buy")
+     * @return Transaction
+     * @throws Exception
      */
-    public function createTransaction(array $data)
+    public function createBuyTransaction(array $data)
     {
         DB::beginTransaction();
         try {
             // Associer l'utilisateur connecté
             $data['user_id'] = Auth::id();
-
-            // Si un investissement est concerné, l'ajuster
+            
             if (isset($data['investment_id'])) {
                 $investment = Investment::where('user_id', $data['user_id'])
                     ->find($data['investment_id']);
-
-                if ($investment) {
-                    if ($data['type'] === 'buy') {
-                        // Augmenter la quantité en cas d'achat
-                        $investment->quantity += $data['quantity'];
-                    } elseif ($data['type'] === 'sell') {
-                        // Vérifier que la quantité est suffisante pour la vente
-                        if ($investment->quantity < $data['quantity']) {
-                            throw new Exception("Quantité insuffisante pour la vente.");
-                        }
-                        // Décrémenter la quantité en cas de vente
-                        $investment->quantity -= $data['quantity'];
-                    }
-                    $investment->save();
+                    
+                if (!isset($data['investment_id'])) {
+                    throw new Exception("Aucun investissement spécifié.");
                 }
-            }
 
-            // Créer la transaction
+                $investment = Investment::where('user_id', $data['user_id'])
+                ->where('id', $data['investment_id'])
+                ->first();
+
+                if (!$investment) {
+                    throw new Exception("Investissement introuvable ou non autorisé.");
+                }
+                
+                // Récupérer l'état actuel de l'investissement
+                $ancienneQuantite = $investment->quantity;
+                $ancienCoutMoyen  = $investment->cout_moyen; // 0 s'il s'agit du premier achat
+                
+                // Valeur du nouvel achat
+                $quantiteAchetee = $data['quantity'];
+                $prixAchat = $data['price'];
+                
+                // Calcul du coût moyen pondéré
+                $totalDepense = ($ancienCoutMoyen * $ancienneQuantite) + ($prixAchat * $quantiteAchetee);
+                $nouvelleQuantite = $ancienneQuantite + $quantiteAchetee;
+                $nouveauCoutMoyen = $nouvelleQuantite > 0 ? $totalDepense / $nouvelleQuantite : 0;
+                
+                // Mise à jour de l'investissement
+                $investment->quantity = $nouvelleQuantite;
+                $investment->cout_moyen = $nouveauCoutMoyen;
+                $investment->save();
+            }
+            
+            // Créer la transaction d'achat
             $transaction = Transaction::create($data);
             DB::commit();
             return $transaction;
-        } catch (Exception $e) {
+        } catch(Exception $e) {
             DB::rollBack();
-            throw new Exception('Error while creating transaction.');
+            throw new Exception('Erreur lors de la création de la transaction d\'achat: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Crée une transaction de vente et met à jour l'investissement.
+     * Pour la vente, on vérifie la quantité disponible et on décrémente la quantité vendue.
+     * Le coût moyen (average_cost) reste inchangé.
+     *
+     * @param array $data Les données de la transaction (incluant investment_id, price, quantity, type = "sell")
+     * @return Transaction
+     * @throws Exception
+     */
+    public function createSellTransaction(array $data)
+    {
+        DB::beginTransaction();
+        try {
+            $data['user_id'] = Auth::id();
+
+            if (!isset($data['investment_id'])) {
+                throw new Exception("Aucun investissement spécifié.");
+            }
+
+            // Vérifier que l'investissement appartient à l'utilisateur
+            $investment = Investment::where('user_id', $data['user_id'])
+                ->where('id', $data['investment_id'])
+                ->first();
+
+            if (!$investment) {
+                throw new Exception("Investissement introuvable ou non autorisé.");
+            }
+
+            // Vérifier la quantité disponible pour la vente
+            if ($investment->quantity < $data['quantity']) {
+                throw new Exception("Quantité insuffisante pour la vente.");
+            }
+
+            // Mettre à jour la quantité
+            $investment->quantity -= $data['quantity'];
+            $investment->save();
+
+            // Créer la transaction de vente
+            $transaction = Transaction::create($data);
+
+            DB::commit();
+            return $transaction;
+        } catch(Exception $e) {
+            DB::rollBack();
+            throw new Exception('Erreur lors de la création de la transaction de vente: ' . $e->getMessage());
         }
     }
 
@@ -71,35 +142,7 @@ class TransactionService
         try {
             return Transaction::where('user_id', $userId)->findOrFail($transactionId);
         } catch (Exception $e) {
-            throw new Exception('Transaction not found.');
-        }
-    }
-
-    /**
-     * Met à jour une transaction.
-     */
-    public function updateTransaction(int $userId, int $transactionId, array $data)
-    {
-        try {
-            $transaction = $this->getTransaction($userId, $transactionId);
-            $transaction->update($data);
-            return $transaction;
-        } catch (Exception $e) {
-            throw new Exception('Error while updating transaction.');
-        }
-    }
-
-    /**
-     * Supprime une transaction.
-     */
-    public function deleteTransaction(int $userId, int $transactionId)
-    {
-        try {
-            $transaction = $this->getTransaction($userId, $transactionId);
-            $transaction->delete();
-            return true;
-        } catch (Exception $e) {
-            throw new Exception('Error while deleting transaction.');
+            throw new Exception('Transaction non trouvée: ' . $e->getMessage());
         }
     }
 }

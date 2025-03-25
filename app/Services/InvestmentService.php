@@ -45,31 +45,4 @@ class InvestmentService
         }
     }
 
-    /**
-     * Met à jour un investissement.
-     */
-    public function updateInvestment(int $userId, int $investmentId, array $data)
-    {
-        try {
-            $investment = $this->getInvestment($userId, $investmentId);
-            $investment->update($data);
-            return $investment;
-        } catch (Exception $e) {
-            throw new Exception('Error while updating investment.');
-        }
-    }
-
-    /**
-     * Supprime un investissement.
-     */
-    public function deleteInvestment(int $userId, int $investmentId)
-    {
-        try {
-            $investment = $this->getInvestment($userId, $investmentId);
-            $investment->delete();
-            return true;
-        } catch (Exception $e) {
-            throw new Exception('Error while deleting investment.');
-        }
-    }
 }

@@ -17,7 +17,7 @@ class TransactionController extends Controller
     }
 
     /**
-     * Display all transactions for a user.
+     * Affiche toutes les transactions pour un utilisateur.
      *
      * @return \Illuminate\Http\JsonResponse
      */
@@ -33,90 +33,33 @@ class TransactionController extends Controller
     }
 
     /**
-     * Store a new transaction.
+     * Crée une nouvelle transaction.
      *
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
     public function store(Request $request)
-    {
-        $data = $request->validate([
-            'investment_id' => 'nullable|exists:investments,id',
-            'type' => 'required|in:buy,sell',
-            'quantity' => 'required|numeric',
-            'price' => 'required|numeric',
-            'transaction_date' => 'required|date'
-        ]);
+{
+    $data = $request->validate([
+        'investment_id'    => 'nullable|exists:investments,id',
+        'type'             => 'required|in:buy,sell',
+        'quantity'         => 'required|numeric',
+        'price'            => 'required|numeric',
+        'transaction_date' => 'required|date'
+    ]);
 
-        $transaction = $this->transactionService->createTransaction($data);
-
-        return response()->json([
-            'message' => 'Transaction successfully created.',
-            'data' => $transaction
-        ], 201);
+    // Sélectionner la méthode de création de transaction en fonction du type
+    if ($data['type'] === 'buy') {
+        $transaction = $this->transactionService->createBuyTransaction($data);
+    } else { // 'sell'
+        $transaction = $this->transactionService->createSellTransaction($data);
     }
 
-    /**
-     * Update an existing transaction.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function update(Request $request, $id)
-    {
-        $data = $request->validate([
-            'investment_id' => 'nullable|exists:investments,id',
-            'type'  => 'in:buy,sell',
-            'quantity' => 'numeric',
-            'price' => 'numeric',
-            'transaction_date' => 'date'
-        ]);
+    return response()->json([
+        'message' => 'Transaction créée avec succès.',
+        'data'    => $transaction
+    ], 201);
+}
 
-        $updated_transaction = $this->transactionService->updateTransaction(Auth::id(), $id, $data);
 
-        return response()->json([
-            'message' => 'Transaction successfully updated.',
-            'data' => $updated_transaction
-        ], 200);
-    }
-
-    /**
-     * Display a specific transaction.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function show($id)
-    {
-        $transaction = $this->transactionService->getTransaction(Auth::id(), $id);
-
-        if (!$transaction) {
-            return response()->json(['message' => 'Transaction not found.'], 404);
-        }
-
-        return response()->json([
-            'message' => 'Transaction successfully retrieved.',
-            'data' => $transaction
-        ], 200);
-    }
-
-    /**
-     * Delete a specific transaction.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function destroy($id)
-    {
-        $deleted = $this->transactionService->deleteTransaction(Auth::id(), $id);
-
-        if (!$deleted) {
-            return response()->json(['message' => 'Error occurred while deleting the transaction.'], 400);
-        }
-
-        return response()->json([
-            'message' => 'Transaction successfully deleted.'
-        ], 204);
-    }
 }

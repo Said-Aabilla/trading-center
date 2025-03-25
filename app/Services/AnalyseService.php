@@ -3,398 +3,227 @@
 namespace App\Services;
 
 use App\Models\Investment;
+use App\Services\YahooFinanceService;
+use App\Services\OpenAIService;
+use Illuminate\Support\Facades\Auth;
 use Exception;
-use Illuminate\Support\Facades\Http;
-use Scheb\YahooFinanceApi\ApiClient;
-use Scheb\YahooFinanceApi\ApiClientFactory;
 
-class AnalysisService
+class AnalyseService
 {
-    /**
-     * Returns the portfolio distribution in terms of value between stocks and cryptocurrencies.
-     */
-    public function portfolioDistribution(int $userId): array
-    {
-        $investments = Investment::where('user_id', $userId)->get();
-        $distribution = ['action' => 0, 'crypto' => 0];
+    protected $yahooFinanceService;
+    protected $openAIService;
 
-        foreach ($investments as $investment) {
-            $value = $investment->current_price * $investment->quantity;
-            if ($investment->type === 'action') {
-                $distribution['action'] += $value;
-            } elseif ($investment->type === 'crypto') {
-                $distribution['crypto'] += $value;
-            }
-        }
-        return $distribution;
+    public function __construct(YahooFinanceService $yahooFinanceService, OpenAIService $openAIService)
+    {   
+        $this->yahooFinanceService = $yahooFinanceService;
+        $this->openAIService = $openAIService;
     }
 
-    /**
-     * Calculates the realized gain for an investment using the FIFO method.
-     *
-     * @param Investment $investment
-     * @return float
+       /**
+     * Vérifie que l'investissement appartient bien à l'utilisateur connecté.
+     * @throws Exception si l'investissement n'appartient pas à l'utilisateur.
      */
-    public function calculateRealizedGain(Investment $investment): float
+    private function checkOwnership(Investment $investment): void
     {
-        $buyTransactions = $investment->transactions()
-            ->where('type', 'buy')
-            ->orderBy('transaction_date', 'asc')
-            ->get();
-
-        $sellTransactions = $investment->transactions()
-            ->where('type', 'sell')
-            ->orderBy('transaction_date', 'asc')
-            ->get();
-
-        $realizedGain = 0;
-        $buyQueue = [];
-
-        foreach ($buyTransactions as $buy) {
-            $buyQueue[] = [
-                'quantity' => $buy->quantity,
-                'price'    => $buy->price,
-            ];
+        if ($investment->user_id !== Auth::id()) {
+            throw new Exception('Accès non autorisé : cet investissement ne vous appartient pas.');
         }
-
-        foreach ($sellTransactions as $sell) {
-            $sellQuantity = $sell->quantity;
-            $sellPrice = $sell->price;
-
-            while ($sellQuantity > 0 && !empty($buyQueue)) {
-                $oldestBuy = array_shift($buyQueue);
-                if ($oldestBuy['quantity'] <= $sellQuantity) {
-                    $realizedGain += $oldestBuy['quantity'] * ($sellPrice - $oldestBuy['price']);
-                    $sellQuantity -= $oldestBuy['quantity'];
-                } else {
-                    $realizedGain += $sellQuantity * ($sellPrice - $oldestBuy['price']);
-                    $oldestBuy['quantity'] -= $sellQuantity;
-                    $sellQuantity = 0;
-                    array_unshift($buyQueue, $oldestBuy);
-                }
-            }
-        }
-
-        return $realizedGain;
     }
-
-    /**
-     * Calculates the unrealized gain (or loss) for an investment using the FIFO method.
-     *
-     * @param Investment $investment
-     * @return float
-     */
-    public function calculateUnrealizedGain(Investment $investment): float
-    {
-        $buyTransactions = $investment->transactions()
-            ->where('type', 'buy')
-            ->orderBy('transaction_date', 'asc')
-            ->get();
-
-        $buyQueue = [];
-        foreach ($buyTransactions as $buy) {
-            $buyQueue[] = [
-                'quantity' => $buy->quantity,
-                'price'    => $buy->price,
-            ];
-        }
-
-        $sellTransactions = $investment->transactions()
-            ->where('type', 'sell')
-            ->orderBy('transaction_date', 'asc')
-            ->get();
-
-        foreach ($sellTransactions as $sell) {
-            $sellQuantity = $sell->quantity;
-            while ($sellQuantity > 0 && !empty($buyQueue)) {
-                $lot = array_shift($buyQueue);
-                if ($lot['quantity'] <= $sellQuantity) {
-                    $sellQuantity -= $lot['quantity'];
-                } else {
-                    $lot['quantity'] -= $sellQuantity;
-                    $sellQuantity = 0;
-                    array_unshift($buyQueue, $lot);
-                }
-            }
-        }
-
-        $unrealizedGain = 0;
-        foreach ($buyQueue as $lot) {
-            $unrealizedGain += ($investment->current_price - $lot['price']) * $lot['quantity'];
-        }
-
-        return $unrealizedGain;
-    }
-
-    /**
-     * Calculates the unrealized ROI (Return on Investment) for an investment using the FIFO method.
-     *
-     * @param Investment $investment
-     * @return float
-     */
-    public function calculateUnrealizedROI(Investment $investment): float
-    {
-        $buyTransactions = $investment->transactions()
-            ->where('type', 'buy')
-            ->orderBy('transaction_date', 'asc')
-            ->get();
-
-        $buyQueue = [];
-        foreach ($buyTransactions as $buy) {
-            $buyQueue[] = [
-                'quantity' => $buy->quantity,
-                'price'    => $buy->price,
-            ];
-        }
-
-        $sellTransactions = $investment->transactions()
-            ->where('type', 'sell')
-            ->orderBy('transaction_date', 'asc')
-            ->get();
-
-        foreach ($sellTransactions as $sell) {
-            $sellQuantity = $sell->quantity;
-            while ($sellQuantity > 0 && !empty($buyQueue)) {
-                $lot = array_shift($buyQueue);
-                if ($lot['quantity'] <= $sellQuantity) {
-                    $sellQuantity -= $lot['quantity'];
-                } else {
-                    $lot['quantity'] -= $sellQuantity;
-                    $sellQuantity = 0;
-                    array_unshift($buyQueue, $lot);
-                }
-            }
-        }
-
-        $costBasis = 0;
-        $remainingQuantity = 0;
-        foreach ($buyQueue as $lot) {
-            $costBasis += $lot['quantity'] * $lot['price'];
-            $remainingQuantity += $lot['quantity'];
-        }
-
-        if ($costBasis == 0) {
-            return 0;
-        }
-
-        $currentValue = $investment->current_price * $remainingQuantity;
-
-        return (($currentValue - $costBasis) / $costBasis) * 100;
-    }
-
-    /**
-     * Calculates the realized ROI for an investment using the FIFO method.
-     *
-     * @param Investment $investment
-     * @return float
-     */
-    public function calculateRealizedROI(Investment $investment): float
-    {
-        $buyTransactions = $investment->transactions()
-            ->where('type', 'buy')
-            ->orderBy('transaction_date', 'asc')
-            ->get();
-
-        $buyQueue = [];
-        foreach ($buyTransactions as $buy) {
-            $buyQueue[] = [
-                'quantity' => $buy->quantity,
-                'price'    => $buy->price,
-            ];
-        }
-
-        $sellTransactions = $investment->transactions()
-            ->where('type', 'sell')
-            ->orderBy('transaction_date', 'asc')
-            ->get();
-
-        $totalRealizedGain = 0;
-        $totalCostBasis = 0;
-
-        foreach ($sellTransactions as $sell) {
-            $sellQuantity = $sell->quantity;
-            $sellPrice = $sell->price;
-
-            while ($sellQuantity > 0 && !empty($buyQueue)) {
-                $lot = array_shift($buyQueue);
-
-                if ($lot['quantity'] <= $sellQuantity) {
-                    $costBasisForLot = $lot['quantity'] * $lot['price'];
-                    $realizedGain = $lot['quantity'] * ($sellPrice - $lot['price']);
-                    $totalCostBasis += $costBasisForLot;
-                    $totalRealizedGain += $realizedGain;
-                    $sellQuantity -= $lot['quantity'];
-                } else {
-                    $costBasisForLot = $sellQuantity * $lot['price'];
-                    $realizedGain = $sellQuantity * ($sellPrice - $lot['price']);
-                    $totalCostBasis += $costBasisForLot;
-                    $totalRealizedGain += $realizedGain;
-                    $lot['quantity'] -= $sellQuantity;
-                    $sellQuantity = 0;
-                    array_unshift($buyQueue, $lot);
-                }
-            }
-        }
-
-        if ($totalCostBasis == 0) {
-            return 0;
-        }
-
-        return ($totalRealizedGain / $totalCostBasis) * 100;
-    }
-
-    /**
-     * Analyzes the sector performance for stocks.
+     /**
+     * Retourne la répartition en valeur du portefeuille entre actions et cryptos.
      *
      * @param int $userId
      * @return array
      */
-    public function analyzeSectorPerformance(int $userId): array
+    public function repartitionPortefeuille(int $userId): array
     {
-        $investments = Investment::where('user_id', $userId)
+        $investissements = Investment::where('user_id', $userId)->get();
+        $repartition = ['action' => 0, 'crypto' => 0];
+
+        foreach ($investissements as $investissement) {
+            $valeur = $investissement->current_price * $investissement->quantity;
+            if ($investissement->type === 'action') {
+                $repartition['action'] += $valeur;
+            } elseif ($investissement->type === 'crypto') {
+                $repartition['crypto'] += $valeur;
+            }
+        }
+
+        return $repartition;
+    }
+
+    /**
+     * Calcule le gain encaissé pour un investissement en utilisant le coût moyen pondéré.
+     * Formule : (prix de vente - cout moyen) * quantité vendue.
+     *
+     * @param Investment $investissement
+     * @return float
+     */
+    public function calculGainEncaisse(Investment $investissement): float
+    {
+        $this->checkOwnership($investissement);
+        $gainRealise = 0;
+       $investissement->load(['transactions' => function($q) {
+        $q->where('type', 'sell');
+    }]);
+
+    foreach ($investissement->transactions as $vente) {
+        $gainRealise += ($vente->price - $investissement->cout_moyen) * $vente->quantity;
+    }
+    return $gainRealise;
+    }
+
+    /**
+     * Calcule le gain non encaissé pour un investissement en utilisant le coût moyen pondéré.
+     * Formule : (current_price - cout moyen) * quantité restante.
+     *
+     * @param Investment $investissement
+     * @return float
+     */
+    public function calculGainNonEncaisse(Investment $investissement): float
+    {
+        $this->checkOwnership($investissement);
+        return ($investissement->current_price - $investissement->cout_moyen) * $investissement->quantity;
+    }
+
+   /**
+     * Calcule le ROI non encaissé pour un investissement en utilisant le coût moyen pondéré.
+     * Formule : ((valeur actuelle - cout total) / cout total) * 100.
+     *
+     * @param Investment $investissement
+     * @return float
+     */
+    public function calculRoiNonEncaisse(Investment $investissement): float
+    {
+    $this->checkOwnership($investissement);
+
+    $quantiteRestante = $investissement->quantity;
+    $coutMoyen = $investissement->cout_moyen; 
+
+    if ($quantiteRestante <= 0 || $coutMoyen <= 0) {
+        return 0;
+    }   
+
+    $coutTotal = $coutMoyen * $quantiteRestante;
+    $valeurActuelle = $investissement->current_price * $quantiteRestante;
+
+    if ($coutTotal == 0) {
+        return 0;
+    }
+
+    return (($valeurActuelle - $coutTotal) / $coutTotal) * 100;
+    }
+
+    /**
+     * Calcule le ROI encaissé pour un investissement en utilisant le coût moyen pondéré.
+     * Formule : (gain total / (cout moyen * quantité vendue)) * 100.
+     *
+     * @param Investment $investissement
+     * @return float
+     */
+    public function calculROIEncaisse(Investment $investissement): float
+    {
+        $this->checkOwnership($investissement);
+        $investissement->load(['transactions' => function($q) {
+            $q->where('type', 'sell');
+        }]);
+        $gainTotal = 0;
+        $coutTotal = 0;
+        foreach ($investissement->transactions as $vente) {
+            $gain      = ($vente->price - $investissement->cout_moyen) * $vente->quantity;
+            $cout      = $investissement->cout_moyen * $vente->quantity;
+            $gainTotal += $gain;
+            $coutTotal += $cout;
+        }
+        if ($coutTotal == 0) {  
+            return 0;
+        }
+        return ($gainTotal / $coutTotal) * 100;
+    }
+
+   /**
+     * Analyse les performances par secteur pour les actions.
+     * Pour chaque investissement, la valeur initiale est calculée comme : cout moyen * quantité,
+     * et la valeur actuelle comme : current_price * quantité.
+     *
+     * @param int $userId
+     * @return array
+     */
+    public function analyseSectorPerformance(int $userId): array
+    {
+        $investissements = Investment::where('user_id', $userId)
             ->where('type', 'action')
             ->whereNotNull('sector')
             ->get();
 
-        $sectors = [];
-        foreach ($investments as $investment) {
-            $sector = $investment->sector;
-
-            // Calculate cost basis of units currently held (FIFO)
-            $costBasis = $this->getCostBasis($investment);
-
-            // Current value = current_price * quantity held
-            $currentValue = $investment->current_price * $investment->quantity;
-
-            if (!isset($sectors[$sector])) {
-                $sectors[$sector] = [
+        $secteurs = [];
+        foreach ($investissements as $investissement) {
+            $secteur = $investissement->sector;
+            $valeurInitiale = $investissement->cout_moyen * $investissement->quantity;
+            $valeurActuelle = $investissement->current_price * $investissement->quantity;
+            if (!isset($secteurs[$secteur])) {
+                $secteurs[$secteur] = [
                     'total_initial' => 0,
                     'total_current' => 0,
                 ];
             }
-            $sectors[$sector]['total_initial'] += $costBasis;
-            $sectors[$sector]['total_current'] += $currentValue;
+            $secteurs[$secteur]['total_initial'] += $valeurInitiale;
+            $secteurs[$secteur]['total_current'] += $valeurActuelle;
         }
 
-        $sectorPerformance = [];
-        foreach ($sectors as $sector => $data) {
-            $performance = (($data['total_current'] - $data['total_initial']) / $data['total_initial']) * 100;
-            $sectorPerformance[$sector] = $performance;
-        }
-
-        return $sectorPerformance;
-    }
-
-    /**
-     * Helper function to calculate cost basis using FIFO method for stocks.
-     *
-     * @param Investment $investment
-     * @return float
-     */
-    private function getCostBasis(Investment $investment): float
-    {
-        $buyTransactions = $investment->transactions()
-            ->where('type', 'buy')
-            ->orderBy('transaction_date', 'asc')
-            ->get();
-
-        $buyQueue = [];
-        foreach ($buyTransactions as $buy) {
-            $buyQueue[] = [
-                'quantity' => $buy->quantity,
-                'price'    => $buy->price,
+        $resultats = [];
+        foreach ($secteurs as $secteur => $donnees) {
+            $roi = $donnees['total_initial'] > 0 ?
+                (($donnees['total_current'] - $donnees['total_initial']) / $donnees['total_initial']) * 100
+                : 0;
+            $resultats[$secteur] = [
+                'roi' => $roi,
+                'total_initial' => $donnees['total_initial'],
+                'total_current' => $donnees['total_current'],
             ];
         }
-
-        $costBasis = 0;
-        $remainingQuantity = $investment->quantity;
-        while ($remainingQuantity > 0 && !empty($buyQueue)) {
-            $lot = array_shift($buyQueue);
-
-            if ($lot['quantity'] <= $remainingQuantity) {
-                $costBasis += $lot['quantity'] * $lot['price'];
-                $remainingQuantity -= $lot['quantity'];
-            } else {
-                $costBasis += $remainingQuantity * $lot['price'];
-                $lot['quantity'] -= $remainingQuantity;
-                $remainingQuantity = 0;
-                array_unshift($buyQueue, $lot);
-            }
-        }
-
-        return $costBasis;
+        return $resultats;
     }
 
+    
+
     /**
-     * Retrieves the historical prices of an asset via Yahoo Finance
+     * Récupère l'historique des prix d'un actif via Yahoo Finance
      *
      * @param string $symbol
      * @return array
      */
     public function getHistoricalPrices(string $symbol): array
     {
-        try {
-            $client = ApiClientFactory::createApiClient();
-            $historicalData = $client->getHistoricalQuoteData(
-                $symbol,
-                ApiClient::INTERVAL_1_DAY,
-                new \DateTime('-30 days'), // Retrieve the last 30 days
-                new \DateTime()
-            );
-
-            $prices = [];
-            foreach ($historicalData as $day) {
-                $prices[] = [strtotime($day->getDate()->format('Y-m-d')), $day->getClose()];
-            }
-
-            return $prices;
-        } catch (Exception $e) {
-            return [];
-        }
+        return $this->yahooFinanceService->getHistoricalPrices($symbol);
     }
 
-    /**
-     * Analyzes the trend of an asset using OpenAI with historical prices
+   /**
+     * Analyse la tendance d'un actif via OpenAI en utilisant l'historique des prix
      *
      * @param array $prices
      * @return string
      */
-    public function analyzeTrend(array $prices): string
+    public function analyseTendance(array $prices): string
     {
         if (empty($prices)) {
-            return "unknown";
+            return "Aucun prix disponible";
         }
 
-        // Format the price data for the prompt
         $formattedPrices = "";
-        foreach ($prices as $priceData) {
-            $formattedPrices .= date('Y-m-d', $priceData[0]) . " : " . $priceData[1] . "\n";
+        foreach ($prices as $p) {
+            $formattedPrices .= date('Y-m-d', $p[0]) . " : " . $p[1] . "\n";
         }
 
-        // Prepare the prompt for OpenAI
-        $prompt = "Here is the price history of an asset over the last 30 days:\n"
+        // Construction du prompt
+        $prompt = "Voici l'historique des prix d'un actif sur les 30 derniers jours :\n"
             . $formattedPrices
-            . "\nAnalyze the overall trend of this asset."
-            . " If the trend is upward, simply respond 'Bullish (Upward Trend)'."
-            . " If the trend is downward, respond 'Bearish (Downward Trend)'."
-            . " Do not add any other explanation.";
+            . "\nAnalyse la tendance globale de cet actif."
+            . " Si la tendance est haussière (montante), réponds 'Bullish (Tendance haussière)'. "
+            . " Si elle est baissière (descendante), réponds 'Bearish (Tendance baissière)'. "
+            . "N'ajoute aucune autre explication.";
 
-        // Call OpenAI API
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
-            'Content-Type' => 'application/json',
-        ])->post('https://api.openai.com/v1/chat/completions', [
-            'model' => 'gpt-4',
-            'messages' => [
-                ['role' => 'system', 'content' => 'You are a financial analyst.'],
-                ['role' => 'user', 'content' => $prompt],
-            ],
-            'temperature' => 0.5,
-            'max_tokens' => 10,
-        ]);
-
-        $result = $response->json();
-        return strtolower(trim($result['choices'][0]['message']['content']));
+        return $this->openAIService->analyseTendance($prompt);
     }
 
 }

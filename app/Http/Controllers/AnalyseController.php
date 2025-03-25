@@ -5,90 +5,90 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Investment;
-use App\Services\AnalysisService;
+use App\Services\AnalyseService;
 use Illuminate\Support\Facades\Auth;
 
 class AnalyseController extends Controller
 {
-    protected AnalysisService $analyseService;
+    protected AnalyseService $analyseService;
 
-    public function __construct(AnalysisService $analyseService)
+    public function __construct(AnalyseService $analyseService)
     {
         $this->analyseService = $analyseService;
     }
 
     /**
-     * Returns the asset distribution (stocks/cryptos).
+     * Retourne la répartition des actifs (actions/cryptos).
      */
-    public function portfolioDistribution()
+    public function repartitionPortefeuille()
     {
         $userId = Auth::id();
-        $breakdown = $this->analyseService->portfolioDistribution($userId);
+        $breakdown = $this->analyseService->repartitionPortefeuille($userId);
         return response()->json($breakdown, 200);
     }
 
     /**
-     * Calculates and returns the realized gain for a given investment.
+     * Calcule et retourne le gain encaissé pour un investissement donné.
      */
-    public function cashGain($invest_id)
+    public function gainEncaisse($invest_id)
     {
         $userId = Auth::id();
         $invest = Investment::where('user_id', $userId)->findOrFail($invest_id);
-        $realizedGain = $this->analyseService->calculateRealizedGain($invest);
-        return response()->json(['Realized Cash Gain' => $realizedGain], 200);
+        $gainEncaisse = $this->analyseService->calculGainEncaisse($invest);
+        return response()->json(['Gain encaissé' => $gainEncaisse], 200);
     }
 
     /** 
-     * Calculates and returns the unrealized gain for a given investment.
+     * Calcule et retourne le gain non encaissé pour un investissement donné.
      */
-    public function nonCashGain($invest_id)
+    public function gainNonEncaisse($invest_id)
     {
         $userId = Auth::id();
         $invest = Investment::where('user_id', $userId)->findOrFail($invest_id);
-        $unrealizedGain = $this->analyseService->calculateUnrealizedGain($invest);
-        return response()->json(['Unrealized Gain' => $unrealizedGain], 200);
+        $gainNonEncaisse = $this->analyseService->calculGainNonEncaisse($invest);
+        return response()->json(['Gain non encaissé' => $gainNonEncaisse], 200);
     }
 
     /**
-     * Returns the performance analysis by sector (for stocks).
+     * Retourne l'analyse des performances par secteur (pour les actions).
      */
     public function performanceBySector()
     {
         $userId = Auth::id();
-        $performance = $this->analyseService->analyzeSectorPerformance($userId);
-        return response()->json($performance, 200);
+        $performance = $this->analyseService->analyseSectorPerformance($userId);
+        return response()->json(['Analyse des performances par secteur' => $performance], 200);
     }
 
-    /**
-     * Calculates the unrealized ROI for a given investment using FIFO.
+     /**
+     * Calcule le ROI (non encaissé) pour un investissement donné en utilisant FIFO.
      */
-    public function unrealizedROI($invest_id)
+    public function roiNonEncaisse($invest_id)
     {
         $userId = Auth::id();
         $invest = Investment::where('user_id', $userId)->findOrFail($invest_id);
-        $roi = $this->analyseService->calculateUnrealizedROI($invest);
-        return response()->json(['Unrealized ROI' => $roi], 200);
+        $roi = $this->analyseService->calculRoiNonEncaisse($invest);
+        return response()->json(['ROI non encaissé' => number_format($roi, 2) . '%'], 200);
     }
 
     /**
-     * Calculates the realized ROI for a given investment.
+     * Calcule le ROI (encaissé) pour un investissement donné en utilisant FIFO.
      */
-    public function realizedROI($invest_id)
+    public function roiEncaisse($invest_id)
     {
         $userId = Auth::id();
         $invest = Investment::where('user_id', $userId)->findOrFail($invest_id);
-        $roi = $this->analyseService->calculateRealizedROI($invest);
-        return response()->json(['Realized ROI' => $roi], 200);
+        $roi = $this->analyseService->calculROIEncaisse($invest);
+        return response()->json(['ROI encaissé' => number_format($roi, 2) . '%'], 200);
     }
 
     /**
-     * Analyzes the trend of an asset.
+     * Analyse la tendance d'un actif
      */
-    public function trendingAnalysis(Request $request)
+    public function analyseTendance(Request $request)
     {
         $symbol = $request->input('symbol');
         $prices = $this->analyseService->getHistoricalPrices($symbol);
-        $trend = $this->analyseService->analyzeTrend($prices);
-        return response()->json(['Asset Trend for ' . $symbol . ' : ' => $trend], 200);
+        $trend = $this->analyseService->analyseTendance($prices);
+        return response()->json(['Tendance de l\'actif ' . $symbol . ' : ' => $trend], 200);
     }
 }

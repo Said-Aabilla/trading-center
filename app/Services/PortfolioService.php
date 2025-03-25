@@ -7,7 +7,6 @@ use App\Models\Portfolio;
 
 class PortfolioService
 {
-    // write the crud operations for the portfolio
     public function createPortfolio($userId, $name)
     {
         $portfolio = new Portfolio();

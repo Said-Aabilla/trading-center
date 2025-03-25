@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Services\InvestmentService;
-use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -43,7 +42,8 @@ class InvestmentController extends Controller
             'quantity' => 'nullable|numeric',
             'sector' => 'nullable|string',
             'portfolio_id' => 'nullable|exists:portfolios,id',
-            'current_price' => 'nullable|numeric'
+            'current_price' => 'nullable|numeric',
+            'cout_moyen' => 'nullable|numeric'
         ]);
 
         $investment = $this->investmentService->createInvestment($data);
@@ -65,39 +65,4 @@ class InvestmentController extends Controller
         
     }
 
-    /**
-     * Modification d'un investissement.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function update(Request $request, $id)
-    {
-        $data = $request->validate([
-            'type' => 'in:action,crypto',
-            'symbol' => 'string',
-            'quantity' => 'numeric',
-            'current_price' => 'numeric',
-            'portfolio_id' => 'nullable|exists:portfolios,id',
-            'sector'  => 'nullable|string'
-        ]);
-        
-        $updatedInvestment = $this->investmentService->updateInvestment(Auth::id(), $id, $data);
-        return response()->json(['message' => 'Investment successfully updated.', 'data' => $updatedInvestment], 200);
-    }
-
-    /**
-     * Suppression d'un investissement.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function destroy($id)
-    {
-        
-        $this->investmentService->deleteInvestment(Auth::id(), $id);
-        return response()->json(['message' => 'Investment successfully deleted.'], 200);
-       
-    }
 }
