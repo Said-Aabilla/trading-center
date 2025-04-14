@@ -1,10 +1,10 @@
-# FinanceMatic - Plateforme de Suivi et d'Analyse des Investissements
+# Trading Center - Plateforme de Suivi et d'Analyse des Investissements
 
 
 
 ## Description
 
-FinanceMatic est une plateforme web dédiée à la gestion et à l'analyse des investissements financiers, permettant aux utilisateurs de suivre en temps réel leurs portefeuilles d'actions boursières et de cryptomonnaies. Elle offre des outils avancés pour analyser les performances, calculer les gains réalisés et non réalisés via la méthode FIFO, et détecter les tendances du marché grâce à l'intégration d'OpenAI.
+Trading-center est une plateforme web dédiée à la gestion et à l'analyse des investissements financiers, permettant aux utilisateurs de suivre en temps réel leurs portefeuilles d'actions boursières et de cryptomonnaies. Elle offre des outils avancés pour analyser les performances, calculer les gains réalisés et non réalisés via la méthode FIFO, et détecter les tendances du marché grâce à l'intégration d'OpenAI.
 
 
 ## Prérequis
@@ -22,8 +22,8 @@ Avant de commencer, assurez-vous d'avoir les éléments suivants installés sur 
 1. Clonez le dépôt :
 
    ```bash
-   git https://youcode-tpr@dev.azure.com/youcode-tpr/Gestion_du_portfeuille_B/_git/Gestion_du_portfeuille_B
-   cd Gestion_du_portfeuille_B
+   git https://github.com/Said-Aabilla/trading-center.git
+   cd trading-center
    ```
 
 2. Installez les dépendances :
@@ -42,7 +42,7 @@ Avant de commencer, assurez-vous d'avoir les éléments suivants installés sur 
         DB_CONNECTION=mysql
         DB_HOST=127.0.0.1
         DB_PORT=3306
-        DB_DATABASE=financematic
+        DB_DATABASE=trading_center
         DB_USERNAME=root
         DB_PASSWORD=yourpassword
 
@@ -54,22 +54,6 @@ Avant de commencer, assurez-vous d'avoir les éléments suivants installés sur 
      ```
 
 ## Lancement
-
-- If you are using Docker Compose, you can set the database and other services in the docker-compose.yml file and ensure they are configured correctly.
-
-**Docker Setup**
-- If you are using Docker Compose, make sure to have Docker and Docker Compose installed on your system.
-
-- Run the following command to build and start the services defined in docker-compose.yml:
-
-```bash
-docker-compose up --build
-```
-
-
-This will set up all necessary services, including the database and application.
-
-
 
 Pour démarrer le serveur de développement, exécutez :
 
